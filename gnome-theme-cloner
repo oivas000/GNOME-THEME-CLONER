@@ -1,0 +1,111 @@
+#!/bin/zsh
+
+home=$(echo ~)
+
+dir_creator() {
+    for dir in ${dirs[@]}; do
+        if [[ ! -d "$dir" ]]; then
+            mkdir -p $dir
+        fi
+    done
+}
+help() {
+    echo "USAGE: gnome-theme-cloner [backup|install] <name>"
+}
+backuper() {
+    if [[ $(id -u) != 0 ]]; then
+
+        echo "CREATING BACKUP FROM $(whoami) DIRS"
+        theme_dir="$home/.themes/"
+        icon_dir="$home/.local/share/icons"
+        config_dir="$home/.config"
+        extentions_dir="$home/.local/share/gnome-shell/extensions/"
+        font_dir="$home/.fonts/"
+        background_dir="$home/.local/share/backgrounds/"
+
+    else
+        echo "RUN WITHOUT SUDO"
+        exit 1
+    fi
+
+    dirs=(.$1/themes .$1/icons .$1/cursors/ .$1/extensions .$1/fonts .$1/gtk .$1/dconf .$1/backgrounds)
+    dir_creator
+
+    cp -r $extentions_dir* ./.$1/extensions/
+    cp -r $font_dir* ./.$1/fonts/
+    cp -r $config_dir/gtk*/ ./.$1/gtk/
+    cp -r $theme_dir* ./.$1/themes/
+    cp -r $(find ~/.local/share/icons/ -maxdepth 1 -type d ! -name "*cursor*") ./.$1/icons
+    cp -r $icon_dir/*cursor*/ ./.$1/cursors
+    cp -r $background_dir* ./.$1/backgrounds
+
+    dconf dump /org/gnome/shell/ >./.$1/dconf/org.gnome.shell.conf
+    dconf dump /org/gnome/desktop/interface/ >./.$1/dconf/org.gnome.desktop.interface.conf
+    dconf dump /org/gnome/desktop/background/ >./.$1/dconf/org.gnome.desktop.background.conf
+    cd ./.$1
+    tar -c --use-compress-program="xz -9eT10" -f ../$1.tar.xz $(ls)
+    cd ..
+    rm -r ./.$1
+    echo "FINISHED BACKUP"
+    echo "BACKUP FILE : $1.tar.xz"
+}
+
+installer() {
+
+    if [[ $(id -u) == 0 ]]; then
+        echo "COPYING TO ROOT DIRS"
+        theme_dir="/usr/share/themes/"
+        icon_dir="/usr/share/icons/"
+        config_dir="$home/.config/"
+        font_dir="/usr/share/fonts/truetype/"
+        extentions_dir="/usr/share/gnome-shell/extensions/"
+        background_dir="/usr/share/backgrounds/"
+
+    else
+        echo "COPYING FILES TO THE $(whoami) DIRS"
+        theme_dir="$home/.themes/"
+        icon_dir="$home/.local/share/icons/"
+        config_dir="$home/.config/"
+        extentions_dir="$home/.local/share/gnome-shell/extensions/"
+        font_dir="$home/.fonts/"
+        background_dir="$home/.local/share/backgrounds/"
+
+    fi
+
+    dirs=($extentions_dir $theme_dir $icon_dir $config_dir $font_dir $background_dir ./.$2)
+    dir_creator
+
+    tar -xJf ./$1 -C ./.$2
+
+    cp -r ./.$2/extensions/* $extentions_dir
+    cp -r ./.$2/fonts/* $font_dir
+    cp -r ./.$2/gtk/* $config_dir
+    cp -r ./.$2/themes/* $theme_dir
+    cp -r ./.$2/icons/* $icon_di
+    cp -r ./.$2/cursors/* ./.$2/icons/* $icon_dir
+    cp -r ./.$2/backgrounds/* $background_dir
+
+    dconf load /org/gnome/desktop/interface/ <./.$2/dconf/org.gnome.desktop.interface.conf
+    dconf load /org/gnome/shell/ <./.$2/dconf/org.gnome.shell.conf
+    dconf load /org/gnome/desktop/background/ <./.$2/dconf/org.gnome.desktop.background.conf
+    rm -r ./.$2
+    echo "INSTALLED \nLOGOUT AND LOGIN AGAIN FOR THE EFFECT"
+}
+
+if [[ -n $(echo $@ | grep -qo help) || -n $(echo $@ | grep -qo "\-h") ]]; then
+    help
+elif [[ $1 == "install" && -n $2 ]]; then
+    installer $2 $(echo $2 | cut -d '.' -f1)
+elif [[ $1 == "backup" && -n $2 ]]; then
+    backuper $2
+elif [[ $1 == "install" && -z $2 && -z $(ls -t theme-backup*.tar.xz | head -n1) ]]; then
+    echo "NO BACKUP FOUND"
+    help
+elif [[ $1 == "install" && -z $2 ]]; then
+    echo "INSTALLING LATEST BACKUP FROM $(ls -t theme-backup*.tar.xz | head -n1)"
+    installer $(ls -t theme-backup*.tar.xz | head -n1) $(echo $(ls -t theme-backup*.tar.xz | head -n1) | cut -d '.' -f1)
+elif [[ $1 == "backup" && -z $2 ]]; then
+    backuper theme-backup-$(date -d "now" +"%S%M%H%d%m%y")
+else
+    help
+fi
