@@ -1,5 +1,7 @@
 #!/bin/zsh
+# Created by @oivas000
 
+echo "Created by @oivas000"
 home=$(echo ~)
 
 dir_creator() {
@@ -31,19 +33,20 @@ backuper() {
     dirs=(.$1/themes .$1/icons .$1/cursors/ .$1/extensions .$1/fonts .$1/gtk .$1/dconf .$1/backgrounds)
     dir_creator
 
+    dconf dump /org/gnome/shell/ >./.$1/dconf/org.gnome.shell.conf
+    dconf dump /org/gnome/desktop/interface/ >./.$1/dconf/org.gnome.desktop.interface.conf
+    dconf dump /org/gnome/desktop/background/ >./.$1/dconf/org.gnome.desktop.background.conf
+
     cp -r $extentions_dir* ./.$1/extensions/
     cp -r $font_dir* ./.$1/fonts/
     cp -r $config_dir/gtk*/ ./.$1/gtk/
     cp -r $theme_dir* ./.$1/themes/
-    cp -r $(find ~/.local/share/icons/ -maxdepth 1 -type d ! -name "*cursor*") ./.$1/icons
+    cp -r $(find $icon_dir/ -maxdepth 1 -type d ! -name "*cursor*" | tail -n +2) ./.$1/icons
     cp -r $icon_dir/*cursor*/ ./.$1/cursors
     cp -r $background_dir* ./.$1/backgrounds
 
-    dconf dump /org/gnome/shell/ >./.$1/dconf/org.gnome.shell.conf
-    dconf dump /org/gnome/desktop/interface/ >./.$1/dconf/org.gnome.desktop.interface.conf
-    dconf dump /org/gnome/desktop/background/ >./.$1/dconf/org.gnome.desktop.background.conf
     cd ./.$1
-    tar -c --use-compress-program="xz -9eT10" -f ../$1.tar.xz $(ls)
+    echo "COMPRESSING" && tar -c --use-compress-program="xz -v9eT0" -f ../$1.tar.xz $(ls)
     cd ..
     rm -r ./.$1
     echo "FINISHED BACKUP"
@@ -75,14 +78,14 @@ installer() {
     dirs=($extentions_dir $theme_dir $icon_dir $config_dir $font_dir $background_dir ./.$2)
     dir_creator
 
-    tar -xJf ./$1 -C ./.$2
+    echo "EXTRACTING" && tar -xJf ./$1 -C ./.$2
 
     cp -r ./.$2/extensions/* $extentions_dir
     cp -r ./.$2/fonts/* $font_dir
     cp -r ./.$2/gtk/* $config_dir
     cp -r ./.$2/themes/* $theme_dir
-    cp -r ./.$2/icons/* $icon_di
-    cp -r ./.$2/cursors/* ./.$2/icons/* $icon_dir
+    cp -r ./.$2/icons/* $icon_dir
+    cp -r ./.$2/cursors/* $icon_dir
     cp -r ./.$2/backgrounds/* $background_dir
 
     dconf load /org/gnome/desktop/interface/ <./.$2/dconf/org.gnome.desktop.interface.conf
